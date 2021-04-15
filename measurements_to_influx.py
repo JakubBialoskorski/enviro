@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+from enviroplus import gas
 from time import gmtime
 from bme280 import BME280
 try:
@@ -44,6 +45,19 @@ while True:
     pressure = bme280.get_pressure()
     # Humidity section
     humidity = bme280.get_humidity()
+    # Gas section
+    gas_data = gas.read_all()
+    oxidising = gas_data.oxidising
+    reducing = gas_data.reducing
+    nh3 = gas_data.nh3
+
+    # oxidising, NO2: ppm = Rs /(6.5 * R0)
+    NO2_PPM = gas_data.oxidising/6.5/1230000 # R0 chosen to give value approx 0.01 in fresh air (detectable = 0.05 to 10)
+    # reducing,CO: ppm = 10^((log10(Rs / 3.5 / R0)) / -0.845 )
+    CO_PPM = 10**((log10(gas_data.reducing/3.5/162000)) / -0.845) # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 1000)
+    # NH3: ppm = =10^((log10(Rs / 0.77 / R0)) / -0.5335 )
+    NH3_PPM = 10**((log10(gas_data.nh3/0.77/298000)) / -0.5335) # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 300)
+
     # Hack time to properly display in Grafana
     iso = time.strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
     json_body = [
@@ -56,7 +70,13 @@ while True:
             "fields": {
                 "temperature": comp_temp,
                 "pressure": pressure,
-                "humidity": humidity
+                "humidity": humidity,
+                "oxidising": gas_data.oxidising,
+                "reducing": gas_data.reducing,
+                "nh3": gas_data.nh3,
+                "oxidising_ppm": NO2_PPM,
+                "reducing_ppm": CO_PPM,
+                "nh3_ppm": NH3_PPM
             }
         }
     ]
