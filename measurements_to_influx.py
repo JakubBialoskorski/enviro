@@ -16,7 +16,7 @@ port = 8086
 dbname = "" # set DB name
 user = "" # set database username
 password="" # set database password
-interval = 5 # adjust as you see fit
+interval = 10 # adjust as you see fit
 client = InfluxDBClient(host, port, user, password, dbname)
 # Required parameters
 bus = SMBus(1)
@@ -34,18 +34,14 @@ factor = 1.75
 cpu_temps = [get_cpu_temperature()] * 5
 
 while True:
-    # Temperature section
     cpu_temp = get_cpu_temperature()
     # Smooth out with some averaging to decrease jitter
     cpu_temps = cpu_temps[1:] + [cpu_temp]
     avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
     raw_temp = bme280.get_temperature()
     comp_temp = raw_temp - ((avg_cpu_temp - raw_temp) / factor)
-    # Pressure section
     pressure = bme280.get_pressure()
-    # Humidity section
     humidity = bme280.get_humidity()
-    # Gas section
     gas_data = gas.read_all()
     oxidising = gas_data.oxidising
     reducing = gas_data.reducing
@@ -81,5 +77,5 @@ while True:
         }
     ]
     client.write_points(json_body)
-    print("write points: {0}".format(json_body)) # for debugging, can be commented - out
+    # print("write points: {0}".format(json_body))
     time.sleep(interval)
