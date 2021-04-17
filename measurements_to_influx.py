@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import time
+from math import log10
 from enviroplus import gas
 from time import gmtime
 from bme280 import BME280
