@@ -31,7 +31,7 @@ def get_cpu_temperature():
     return temp
 # Tuning factor for compensation. Decrease this number to adjust the
 # temperature down, and increase to adjust up. Default is 2.25 .
-factor = 1.75
+factor = 1.25
 cpu_temps = [get_cpu_temperature()] * 5
 
 while True:
