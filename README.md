@@ -17,7 +17,8 @@ It's important that sensors run in a consistent matter - for accurate readings.
 
 `sudo nano /etc/supervisor/conf.d/enviro.conf` :
 
-```[program:enviro]
+```
+[program:enviro]
 command=python measurements_to_influx.py
 directory=/home/pi/GitHub/enviro
 autostart=true
