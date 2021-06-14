@@ -16,7 +16,7 @@ host = "" # set IP or DNS name here
 port = 8086
 dbname = "" # set DB name
 user = "" # set database username
-password="" # set database password
+password= "" # set database password
 interval = 10 # adjust as you see fit
 client = InfluxDBClient(host, port, user, password, dbname)
 # Required parameters
