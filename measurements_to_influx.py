@@ -17,7 +17,7 @@ port = 8086 # set your InfluxDB port
 dbname = "" # set DB name
 user = "" # set database username
 password= "" # set database password
-interval = 10 # adjust as you see fit
+interval = 30 # adjust as you see fit, it is how often data gets written into the database
 client = InfluxDBClient(host, port, user, password, dbname, ssl=True, verify_ssl=True)
 # Required parameters
 bus = SMBus(1)
