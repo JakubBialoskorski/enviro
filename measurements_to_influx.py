@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import time
 import logging
 import requests
@@ -47,6 +48,9 @@ def get_cpu_temperature():
 # temperature down, and increase to adjust up. Default is 2.25 .
 factor = 1.25
 cpu_temps = [get_cpu_temperature()] * 5
+# Exit after this many failed samples in a row, so supervisor restarts the script and re-initialises the sensors
+max_failures = 5
+failures = 0
 
 while True:
     try:
@@ -75,9 +79,14 @@ while True:
         pms5003_pm10 = data.pm_ug_per_m3(10)
     # OSError: I2C/serial, RuntimeError: PMS5003 checksum/timeout, ValueError: log10 of a 0 gas reading
     except (OSError, RuntimeError, ValueError) as e:
-        logging.warning("reading sensors failed, skipping sample: %s", e)
+        failures += 1
+        logging.warning("reading sensors failed (%d/%d), skipping sample: %s", failures, max_failures, e)
+        if failures >= max_failures:
+            logging.error("too many consecutive failures, exiting to restart the sensors")
+            sys.exit(1)
         time.sleep(interval)
         continue
+    failures = 0
 
     # Hack time to properly display in Grafana
     iso = time.strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
