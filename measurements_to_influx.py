@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 import time
+import logging
+import requests
 from math import log10
 from enviroplus import gas
 from time import gmtime
@@ -11,6 +13,9 @@ try:
 except ImportError:
     from smbus import SMBus
 from influxdb import InfluxDBClient
+from influxdb.exceptions import InfluxDBClientError, InfluxDBServerError
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # InfluxDB endpoint configuration
 host = "" # set IP or DNS name here
@@ -19,7 +24,7 @@ dbname = "" # set DB name
 user = "" # set database username
 password= "" # set database password
 interval = 30 # adjust as you see fit, it is how often data gets written into the database
-client = InfluxDBClient(host, port, user, password, dbname, ssl=True, verify_ssl=True)
+client = InfluxDBClient(host, port, user, password, dbname, ssl=True, verify_ssl=True, timeout=10)
 # Required parameters
 bus = SMBus(1)
 bme280 = BME280(i2c_dev=bus)
@@ -44,29 +49,35 @@ factor = 1.25
 cpu_temps = [get_cpu_temperature()] * 5
 
 while True:
-    cpu_temp = get_cpu_temperature()
-    # Smooth out with some averaging to decrease jitter
-    cpu_temps = cpu_temps[1:] + [cpu_temp]
-    avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
-    raw_temp = bme280.get_temperature()
-    comp_temp = raw_temp - ((avg_cpu_temp - raw_temp) / factor)
-    pressure = bme280.get_pressure()
-    humidity = bme280.get_humidity()
-    gas_data = gas.read_all()
-    oxidising = gas_data.oxidising
-    reducing = gas_data.reducing
-    nh3 = gas_data.nh3
-    # oxidising, NO2: ppm = Rs /(6.5 * R0)
-    NO2_PPM = gas_data.oxidising/6.5/1230000 # R0 chosen to give value approx 0.01 in fresh air (detectable = 0.05 to 10)
-    # reducing,CO: ppm = 10^((log10(Rs / 3.5 / R0)) / -0.845 )
-    CO_PPM = 10**((log10(gas_data.reducing/3.5/162000)) / -0.845) # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 1000)
-    # NH3: ppm = =10^((log10(Rs / 0.77 / R0)) / -0.5335 )
-    NH3_PPM = 10**((log10(gas_data.nh3/0.77/298000)) / -0.5335) # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 300)
-    # PMS5003 readings
-    data = pms5003.read()
-    pms5003_pm1 = data.pm_ug_per_m3(1.0)
-    pms5003_pm25 = data.pm_ug_per_m3(2.5)
-    pms5003_pm10 = data.pm_ug_per_m3(10)
+    try:
+        cpu_temp = get_cpu_temperature()
+        # Smooth out with some averaging to decrease jitter
+        cpu_temps = cpu_temps[1:] + [cpu_temp]
+        avg_cpu_temp = sum(cpu_temps) / float(len(cpu_temps))
+        raw_temp = bme280.get_temperature()
+        comp_temp = raw_temp - ((avg_cpu_temp - raw_temp) / factor)
+        pressure = bme280.get_pressure()
+        humidity = bme280.get_humidity()
+        gas_data = gas.read_all()
+        oxidising = gas_data.oxidising
+        reducing = gas_data.reducing
+        nh3 = gas_data.nh3
+        # oxidising, NO2: ppm = Rs /(6.5 * R0)
+        NO2_PPM = gas_data.oxidising/6.5/1230000 # R0 chosen to give value approx 0.01 in fresh air (detectable = 0.05 to 10)
+        # reducing,CO: ppm = 10^((log10(Rs / 3.5 / R0)) / -0.845 )
+        CO_PPM = 10**((log10(gas_data.reducing/3.5/162000)) / -0.845) # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 1000)
+        # NH3: ppm = =10^((log10(Rs / 0.77 / R0)) / -0.5335 )
+        NH3_PPM = 10**((log10(gas_data.nh3/0.77/298000)) / -0.5335) # R0 chosen to give value approx 2 in fresh air (detectable = 1 to 300)
+        # PMS5003 readings
+        data = pms5003.read()
+        pms5003_pm1 = data.pm_ug_per_m3(1.0)
+        pms5003_pm25 = data.pm_ug_per_m3(2.5)
+        pms5003_pm10 = data.pm_ug_per_m3(10)
+    # OSError: I2C/serial, RuntimeError: PMS5003 checksum/timeout, ValueError: log10 of a 0 gas reading
+    except (OSError, RuntimeError, ValueError) as e:
+        logging.warning("reading sensors failed, skipping sample: %s", e)
+        time.sleep(interval)
+        continue
 
     # Hack time to properly display in Grafana
     iso = time.strftime("%a, %d %b %Y %H:%M:%S +0000", gmtime())
@@ -93,6 +104,9 @@ while True:
             }
         }
     ]
-    client.write_points(json_body)
+    try:
+        client.write_points(json_body)
+    except (requests.exceptions.RequestException, InfluxDBClientError, InfluxDBServerError) as e:
+        logging.warning("writing to InfluxDB failed, dropping point: %s", e)
     # print("write points: {0}".format(json_body))
     time.sleep(interval)
