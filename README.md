@@ -11,14 +11,14 @@ If you want to run it with external PMS5003 sensor, run the following commands:
 
 `sudo raspi-config nonint do_serial 1`
 
-`raspi-config nonint set_config_var enable_uart 1 /boot/config.txt`
+`sudo raspi-config nonint set_config_var enable_uart 1 /boot/config.txt`
 
 Double-check that `dtoverlay=pi3-miniuart-bt` is enabled in `/boot/config.txt` . Reboot the Pi afterwards.
 
 ---
 
 ### How to reliably run it
-It's important that sensors run in a consistent matter - for accurate readings.
+It's important that sensors run in a consistent manner - for accurate readings.
 `Supervisor` can monitor python PID and make sure it's always up:
 
 `sudo apt-get install supervisor`
@@ -29,7 +29,7 @@ It's important that sensors run in a consistent matter - for accurate readings.
 
 ```
 [program:enviro]
-command=python measurements_to_influx.py
+command=python3 measurements_to_influx.py
 directory=/home/pi/GitHub/enviro
 autostart=true
 autorestart=true
