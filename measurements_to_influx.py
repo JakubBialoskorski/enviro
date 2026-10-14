@@ -5,6 +5,7 @@ from math import log10
 from enviroplus import gas
 from time import gmtime
 from bme280 import BME280
+from pms5003 import PMS5003
 try:
     from smbus2 import SMBus
 except ImportError:
